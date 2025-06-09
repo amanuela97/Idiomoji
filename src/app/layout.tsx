@@ -9,6 +9,14 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata = {
   title: "Idiomoji",
   description: "Daily idiom puzzles with emojis",
+  icons: {
+    icon: [
+      {
+        url: "/logo.webp",
+        type: "image/webp",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({

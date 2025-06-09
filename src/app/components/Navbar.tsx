@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/app/lib/auth-context";
 import Link from "next/link";
+import Image from "next/image";
 import { auth } from "@/app/lib/firebase-client";
 import { signOut } from "firebase/auth";
 import { useRouter, usePathname } from "next/navigation";
@@ -72,9 +73,17 @@ export default function Navbar() {
           <div className="flex items-center">
             <Link
               href="/"
-              className="text-2xl font-bold text-blue-600 hover:text-blue-700"
+              className="flex items-center gap-2 text-2xl font-bold text-blue-600 hover:text-blue-700"
             >
-              Idiomoji
+              <Image
+                src="/logo.webp"
+                alt="Idiomoji Logo"
+                width={62}
+                height={62}
+                className="rounded-lg"
+                priority
+              />
+              <span>Idiomoji</span>
             </Link>
 
             {/* Navigation Items */}
