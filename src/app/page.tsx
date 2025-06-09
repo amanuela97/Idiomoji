@@ -1,103 +1,176 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from "react";
+import { Button } from "@/app/components/ui/button";
+import { Card, CardContent } from "@/app/components/ui/card";
+import { Trophy, Clock, Calendar, Users, Play, BarChart3 } from "lucide-react";
+import { getDailyPuzzle } from "@/app/lib/api";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [hoveredMode, setHoveredMode] = useState<string | null>(null);
+  const [todaysPuzzle, setTodaysPuzzle] = useState<string>("🎲");
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  useEffect(() => {
+    const fetchTodaysPuzzle = async () => {
+      try {
+        const puzzle = await getDailyPuzzle();
+        if (puzzle) {
+          setTodaysPuzzle(puzzle.emoji);
+        }
+      } catch (error) {
+        console.error("Error fetching daily puzzle:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTodaysPuzzle();
+  }, []);
+
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
+      {/* Simple Header */}
+      <div className="text-center mb-12">
+        <h1 className="text-5xl md:text-7xl font-bold text-gray-800 mb-4">
+          🤔 Idiomoji
+        </h1>
+        <p className="text-xl text-gray-600">
+          Guess the idiom from the emojis!
+        </p>
+      </div>
+
+      {/* Today's Puzzle Preview */}
+      <Card className="mb-12 bg-white/80 backdrop-blur border-0 shadow-lg">
+        <CardContent className="p-8 text-center">
+          <div className="text-sm text-gray-500 mb-2">
+            {"Today's Daily Challenge"}
+          </div>
+          <div className="text-6xl mb-4 font-mono">
+            {isLoading ? "..." : todaysPuzzle}
+          </div>
+          <div className="text-gray-600 mb-4">Can you guess this idiom?</div>
+          <Button
+            size="lg"
+            className="bg-purple-500 hover:bg-purple-600 text-white rounded-full px-8"
+            onClick={() => router.push("/daily")}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+            <Play className="mr-2 h-5 w-5" />
+            Play Now
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Game Modes - Simple Grid */}
+      <div className="grid md:grid-cols-3 gap-6 mb-12">
+        <button
+          className="group text-left p-6 rounded-2xl bg-white/60 hover:bg-white/80 transition-all hover:scale-105 hover:shadow-lg border-0"
+          onMouseEnter={() => setHoveredMode("daily")}
+          onMouseLeave={() => setHoveredMode(null)}
+          onClick={() => router.push("/daily")}
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+              <Calendar className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg">Daily Challenge</h3>
+              <p className="text-sm text-gray-600">One puzzle per day</p>
+            </div>
+          </div>
+          {hoveredMode === "daily" && (
+            <div className="text-sm text-gray-600 animate-in slide-in-from-top-1">
+              Everyone gets the same puzzle. Share your results!
+            </div>
+          )}
+        </button>
+
+        <button
+          className="group text-left p-6 rounded-2xl bg-white/60 hover:bg-white/80 transition-all hover:scale-105 hover:shadow-lg border-0"
+          onMouseEnter={() => setHoveredMode("time")}
+          onMouseLeave={() => setHoveredMode(null)}
         >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center">
+              <Clock className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg">Time Attack</h3>
+              <p className="text-sm text-gray-600">2 minutes, max points</p>
+            </div>
+          </div>
+          {hoveredMode === "time" && (
+            <div className="text-sm text-gray-600 animate-in slide-in-from-top-1">
+              Solve as many as you can before time runs out!
+            </div>
+          )}
+        </button>
+
+        <button
+          className="group text-left p-6 rounded-2xl bg-white/60 hover:bg-white/80 transition-all hover:scale-105 hover:shadow-lg border-0"
+          onMouseEnter={() => setHoveredMode("duel")}
+          onMouseLeave={() => setHoveredMode(null)}
         >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+              <Users className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg">Multiplayer Duel</h3>
+              <p className="text-sm text-gray-600">Race other players</p>
+            </div>
+          </div>
+          {hoveredMode === "duel" && (
+            <div className="text-sm text-gray-600 animate-in slide-in-from-top-1">
+              First to guess correctly wins the round!
+            </div>
+          )}
+        </button>
+      </div>
+
+      {/* Quick Examples */}
+      <Card className="mb-8 bg-white/60 backdrop-blur border-0">
+        <CardContent className="p-6">
+          <h3 className="font-semibold mb-4 text-center">Quick Examples</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+            <div className="p-3 rounded-lg bg-white/50">
+              <div className="text-2xl mb-2">❄️🪓</div>
+              <div className="text-sm text-gray-600">{"Break the ice"}</div>
+            </div>
+            <div className="p-3 rounded-lg bg-white/50">
+              <div className="text-2xl mb-2">🍰🎂</div>
+              <div className="text-sm text-gray-600">{"Piece of cake"}</div>
+            </div>
+            <div className="p-3 rounded-lg bg-white/50">
+              <div className="text-2xl mb-2">🌧️🐱🐶</div>
+              <div className="text-sm text-gray-600">
+                {"Raining cats and dogs"}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Simple Footer Links */}
+      <div className="flex justify-center gap-6 text-sm">
+        <Link
+          href="/leaderboard"
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
+        >
+          <Trophy className="h-4 w-4" />
+          Leaderboard
+        </Link>
+        <Link
+          href="/daily"
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
+        >
+          <BarChart3 className="h-4 w-4" />
+          My Stats
+        </Link>
+      </div>
     </div>
   );
 }
