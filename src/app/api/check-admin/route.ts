@@ -4,13 +4,15 @@ import { adminAuth } from "@/app/lib/firebase-admin";
 
 export async function POST(request: Request) {
   try {
-    const { uid } = await request.json();
+    const data = await request.json();
+    const uid = data.uid?.trim();
 
     if (!uid) {
       return NextResponse.json({ error: "Missing UID" }, { status: 400 });
     }
 
-    const ADMIN_LIST = process.env.ADMIN_LIST?.split(",") || [];
+    const ADMIN_LIST =
+      process.env.ADMIN_LIST?.split(",").map((id) => id.trim()) || [];
 
     if (!ADMIN_LIST.includes(uid)) {
       return NextResponse.json(
