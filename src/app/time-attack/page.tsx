@@ -27,20 +27,146 @@ function generateLetterHints(answer: string): string {
 export default function TimeAttackGame() {
   const router = useRouter();
   const { user } = useAuth();
-  const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
-  const [isGameActive, setIsGameActive] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number>(GAME_DURATION);
+  const [isGameActive, setIsGameActive] = useState<boolean>(false);
   const [puzzles, setPuzzles] = useState<IdiomPuzzle[]>([]);
-  const [currentPuzzleIndex, setCurrentPuzzleIndex] = useState(0);
-  const [currentAttempt, setCurrentAttempt] = useState("");
-  const [attemptCount, setAttemptCount] = useState(0);
-  const [sessionScore, setSessionScore] = useState(0);
+  const [currentPuzzleIndex, setCurrentPuzzleIndex] = useState<number>(0);
+  const [currentAttempt, setCurrentAttempt] = useState<string>("");
+  const [attemptCount, setAttemptCount] = useState<number>(0);
+  const [sessionScore, setSessionScore] = useState<number>(0);
   const [puzzleStartTime, setPuzzleStartTime] = useState<Date | null>(null);
   const [puzzleAttempts, setPuzzleAttempts] = useState<PuzzleAttempt[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [gameStartTime, setGameStartTime] = useState<Date | null>(null);
-  const [isGameOver, setIsGameOver] = useState(false);
+  const [isGameOver, setIsGameOver] = useState<boolean>(false);
   const isEndingGame = useRef(false);
   const usedPuzzleIds = useRef<Set<string>>(new Set());
+  const timerStartRef = useRef<number>(0);
+  const requestAnimationFrameRef = useRef<number | null>(null);
+
+  // Define endGame first since it's used in the timer effect
+  const endGame = useCallback(async () => {
+    if (!user || !gameStartTime || isEndingGame.current) return;
+
+    isEndingGame.current = true;
+    setIsGameActive(false);
+    setIsGameOver(true);
+    const endTime = new Date();
+
+    // Small delay to ensure the last attempt state updates are processed
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const session: Omit<TimeAttackSession, "id"> = {
+      playerId: user.uid,
+      playerName: user.displayName || "Anonymous",
+      playerPhotoURL: user.photoURL || undefined,
+      startTime: Timestamp.fromDate(gameStartTime),
+      endTime: Timestamp.fromDate(endTime),
+      score: sessionScore,
+      puzzleAttempts,
+    };
+
+    try {
+      await saveTimeAttackSession(session);
+      toast.success("Game session saved!", { duration: 1000 });
+    } catch (error) {
+      console.error("Error saving session:", error);
+      toast.error("Failed to save game session");
+    }
+  }, [user, gameStartTime, sessionScore, puzzleAttempts]);
+
+  // Start game
+  const startGame = useCallback(() => {
+    if (!user) {
+      toast.error("Please log in to play Time Attack mode");
+      return;
+    }
+    if (puzzles.length === 0) {
+      toast.error("No puzzles available. Please try again.");
+      return;
+    }
+    setIsGameActive(true);
+    setIsGameOver(false);
+    const now = Date.now();
+    setGameStartTime(new Date(now));
+    setPuzzleStartTime(new Date(now));
+    timerStartRef.current = now;
+    setTimeLeft(GAME_DURATION);
+    setCurrentPuzzleIndex(0);
+    setSessionScore(0);
+    setPuzzleAttempts([]);
+    setAttemptCount(0);
+    isEndingGame.current = false;
+  }, [user, puzzles.length]);
+
+  // Handle game timer using requestAnimationFrame
+  useEffect(() => {
+    if (!isGameActive) {
+      if (requestAnimationFrameRef.current) {
+        cancelAnimationFrame(requestAnimationFrameRef.current);
+      }
+      return;
+    }
+
+    let frameId: number;
+
+    const updateTimer = () => {
+      const now = Date.now();
+      const elapsedSeconds = Math.floor((now - timerStartRef.current) / 1000);
+      const newTimeLeft = Math.max(0, GAME_DURATION - elapsedSeconds);
+
+      setTimeLeft(newTimeLeft);
+
+      if (newTimeLeft <= 0) {
+        // Save the current attempt if there is one
+        if (currentAttempt.trim() && puzzleStartTime) {
+          const currentPuzzle = puzzles[currentPuzzleIndex];
+          if (currentPuzzle) {
+            const isCorrect =
+              currentAttempt.toLowerCase().trim() ===
+              currentPuzzle.answer.toLowerCase().trim();
+            const responseTime = (now - puzzleStartTime.getTime()) / 1000;
+            const lastAttempt: PuzzleAttempt = {
+              puzzleId: currentPuzzle.id,
+              answeredAt: Timestamp.now(),
+              correct: isCorrect,
+              responseTime,
+              scoreAwarded: isCorrect
+                ? calculateScore(responseTime, attemptCount + 1)
+                : 0,
+              attemptNumber: attemptCount + 1,
+            };
+            setPuzzleAttempts((prev) => [...prev, lastAttempt]);
+            if (isCorrect) {
+              setSessionScore((prev) => prev + lastAttempt.scoreAwarded);
+            }
+          }
+        }
+        endGame();
+        return;
+      }
+
+      frameId = requestAnimationFrame(updateTimer);
+      requestAnimationFrameRef.current = frameId;
+    };
+
+    frameId = requestAnimationFrame(updateTimer);
+    requestAnimationFrameRef.current = frameId;
+
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+    };
+  }, [
+    isGameActive,
+    currentAttempt,
+    puzzleStartTime,
+    puzzles,
+    currentPuzzleIndex,
+    attemptCount,
+    endGame,
+  ]);
 
   // Load initial puzzles
   const loadPuzzles = useCallback(async () => {
@@ -66,78 +192,6 @@ export default function TimeAttackGame() {
       setLoading(false);
     }
   }, []);
-
-  // Start game
-  const startGame = useCallback(() => {
-    if (!user) {
-      toast.error("Please log in to play Time Attack mode");
-      return;
-    }
-    if (puzzles.length === 0) {
-      toast.error("No puzzles available. Please try again.");
-      return;
-    }
-    setIsGameActive(true);
-    setIsGameOver(false);
-    setGameStartTime(new Date());
-    setPuzzleStartTime(new Date());
-    setTimeLeft(GAME_DURATION);
-    setCurrentPuzzleIndex(0);
-    setSessionScore(0);
-    setPuzzleAttempts([]);
-    setAttemptCount(0);
-    isEndingGame.current = false;
-  }, [user, puzzles.length]);
-
-  // Handle game timer
-  useEffect(() => {
-    if (!isGameActive) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          // Save the current attempt if there is one
-          if (currentAttempt.trim() && puzzleStartTime) {
-            const currentPuzzle = puzzles[currentPuzzleIndex];
-            if (currentPuzzle) {
-              const isCorrect =
-                currentAttempt.toLowerCase().trim() ===
-                currentPuzzle.answer.toLowerCase().trim();
-              const responseTime =
-                (new Date().getTime() - puzzleStartTime.getTime()) / 1000;
-              const lastAttempt: PuzzleAttempt = {
-                puzzleId: currentPuzzle.id,
-                answeredAt: Timestamp.now(),
-                correct: isCorrect,
-                responseTime,
-                scoreAwarded: isCorrect
-                  ? calculateScore(responseTime, attemptCount + 1)
-                  : 0,
-                attemptNumber: attemptCount + 1,
-              };
-              setPuzzleAttempts((prev) => [...prev, lastAttempt]);
-              if (isCorrect) {
-                setSessionScore((prev) => prev + lastAttempt.scoreAwarded);
-              }
-            }
-          }
-          endGame();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [
-    isGameActive,
-    currentAttempt,
-    puzzleStartTime,
-    puzzles,
-    currentPuzzleIndex,
-    attemptCount,
-  ]);
 
   // Load more puzzles if needed
   useEffect(() => {
@@ -233,36 +287,6 @@ export default function TimeAttackGame() {
     currentAttempt,
     attemptCount,
   ]);
-
-  const endGame = useCallback(async () => {
-    if (!user || !gameStartTime || isEndingGame.current) return;
-
-    isEndingGame.current = true;
-    setIsGameActive(false);
-    setIsGameOver(true);
-    const endTime = new Date();
-
-    // Small delay to ensure the last attempt state updates are processed
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    const session: Omit<TimeAttackSession, "id"> = {
-      playerId: user.uid,
-      playerName: user.displayName || "Anonymous",
-      playerPhotoURL: user.photoURL || undefined,
-      startTime: Timestamp.fromDate(gameStartTime),
-      endTime: Timestamp.fromDate(endTime),
-      score: sessionScore,
-      puzzleAttempts,
-    };
-
-    try {
-      await saveTimeAttackSession(session);
-      toast.success("Game session saved!", { duration: 1000 });
-    } catch (error) {
-      console.error("Error saving session:", error);
-      toast.error("Failed to save game session");
-    }
-  }, [user, gameStartTime, sessionScore, puzzleAttempts]);
 
   if (loading) {
     return (
