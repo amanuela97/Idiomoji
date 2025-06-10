@@ -124,15 +124,41 @@ export const submitIdiomPuzzle = async (
   uid?: string
 ): Promise<void> => {
   try {
+    // Validate inputs
+    if (!emoji || emoji.trim().length === 0) {
+      throw new Error("Emoji sequence is required");
+    }
+    if (!answer || answer.trim().length === 0) {
+      throw new Error("Answer is required");
+    }
+    if (!hint || hint.trim().length === 0) {
+      throw new Error("Hint is required");
+    }
+
+    // Sanitize inputs
+    const sanitizedEmoji = emoji.trim();
+    const sanitizedAnswer = answer.trim().toLowerCase();
+    const sanitizedHint = hint.trim();
+
+    // Validate emoji sequence contains only emojis
+    const emojiRegex = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu;
+    const emojiMatches = sanitizedEmoji.match(emojiRegex);
+    if (!emojiMatches) {
+      throw new Error("Invalid emoji sequence");
+    }
+
+    // Create submission document
     const submissionRef = collection(db, "idiomSubmissions");
-    await setDoc(doc(submissionRef), {
-      emoji,
-      answer,
-      hint,
-      submittedBy: uid,
+    const submissionData = {
+      emoji: sanitizedEmoji,
+      answer: sanitizedAnswer,
+      hint: sanitizedHint,
+      submittedBy: uid || null, // Use null instead of undefined
       createdAt: serverTimestamp(),
       status: "pending",
-    });
+    };
+
+    await setDoc(doc(submissionRef), submissionData);
   } catch (error) {
     console.error("Error submitting idiom puzzle:", error);
     throw error;

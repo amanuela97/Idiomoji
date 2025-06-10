@@ -49,7 +49,12 @@ export default function SubmitPuzzle() {
       setAnswer("");
       setHint("");
     } catch (err) {
-      setError("Failed to submit puzzle. Please try again.");
+      // Handle specific validation errors
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to submit puzzle. Please try again.");
+      }
       console.error(err);
     } finally {
       setSubmitting(false);
@@ -98,6 +103,7 @@ export default function SubmitPuzzle() {
               placeholder="e.g., 🐘🚪"
               className="flex-1 p-2 border rounded"
               required
+              aria-invalid={error?.includes("emoji") ? "true" : "false"}
             />
             <button
               type="button"
@@ -142,6 +148,7 @@ export default function SubmitPuzzle() {
             placeholder="e.g., elephant in the room"
             className="w-full p-2 border rounded"
             required
+            aria-invalid={error?.includes("answer") ? "true" : "false"}
           />
         </div>
 
@@ -159,13 +166,18 @@ export default function SubmitPuzzle() {
             placeholder="e.g., A big issue that people are ignoring"
             className="w-full p-2 border rounded h-24"
             required
+            aria-invalid={error?.includes("hint") ? "true" : "false"}
           />
         </div>
 
-        {error && <div className="text-red-500 text-sm">{error}</div>}
+        {error && (
+          <div className="text-red-500 text-sm bg-red-50 p-3 rounded-md border border-red-200">
+            {error}
+          </div>
+        )}
 
         {success && (
-          <div className="text-green-500 text-sm">
+          <div className="text-green-500 text-sm bg-green-50 p-3 rounded-md border border-green-200">
             Puzzle submitted successfully! It will be reviewed by our team.
           </div>
         )}
@@ -173,8 +185,10 @@ export default function SubmitPuzzle() {
         <button
           type="submit"
           disabled={submitting}
-          className={`w-full py-2 px-4 rounded text-white transition-colors ${
-            submitting ? "bg-blue-300" : "bg-blue-500 hover:bg-blue-600"
+          className={`w-full py-2 px-4 rounded-md text-white font-medium ${
+            submitting
+              ? "bg-blue-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
           }`}
         >
           {submitting ? "Submitting..." : "Submit Puzzle"}
