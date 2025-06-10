@@ -89,7 +89,6 @@ export const getPlayerStats = async (
   try {
     // Verify the current user matches the requested uid
     const currentUser = auth.currentUser;
-    console.log(currentUser?.email, uid);
     if (!currentUser || currentUser.uid !== uid) {
       console.log("Auth state mismatch, skipping stats fetch");
       return null;

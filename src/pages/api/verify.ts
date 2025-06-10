@@ -11,7 +11,7 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ResponseData>
 ) {
-  if (req.method !== "GET") {
+  if (req.method !== "POST" && req.method !== "GET") {
     return res
       .status(405)
       .json({ isValid: false, isAdmin: false, error: "Method not allowed" });
@@ -21,8 +21,12 @@ export default async function handler(
     const sessionCookie = req.cookies.__session;
 
     if (!sessionCookie) {
-      console.log("No session cookie value found");
-      return res.status(401).json({ isValid: false, isAdmin: false });
+      console.log("No session cookie found");
+      return res.status(401).json({
+        isValid: false,
+        isAdmin: false,
+        error: "No session cookie found",
+      });
     }
 
     // Verify the session cookie and get claims
@@ -31,12 +35,25 @@ export default async function handler(
       true
     );
 
-    return res.json({
+    if (!decodedClaims) {
+      console.log("Invalid session cookie");
+      return res.status(401).json({
+        isValid: false,
+        isAdmin: false,
+        error: "Invalid session cookie",
+      });
+    }
+
+    return res.status(200).json({
       isValid: true,
       isAdmin: decodedClaims.admin === true,
     });
   } catch (error) {
     console.error("Error verifying session:", error);
-    return res.status(401).json({ isValid: false, isAdmin: false });
+    return res.status(401).json({
+      isValid: false,
+      isAdmin: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
   }
 }

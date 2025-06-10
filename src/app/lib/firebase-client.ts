@@ -59,7 +59,6 @@ export const ensureAdminToken = async () => {
     await auth.currentUser?.getIdToken(true);
     const token = await auth.currentUser?.getIdTokenResult();
 
-    console.log(token);
     if (!token?.claims.admin) {
       throw new Error("User is not an admin");
     }

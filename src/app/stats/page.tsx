@@ -2,14 +2,31 @@
 
 import { useAuth } from "@/app/lib/auth-context";
 import { PlayerStats } from "@/app/components/player-stats";
+import Link from "next/link";
 
 export default function StatsPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-2xl font-bold">Loading statistics...</div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        Loading statistics...
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+        <div className="text-2xl font-bold">
+          You need to be logged in to see this page
+        </div>
+        <Link
+          href="/login?redirectTo=/stats"
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+        >
+          Login
+        </Link>
       </div>
     );
   }

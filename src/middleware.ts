@@ -31,78 +31,18 @@ export async function middleware(request: NextRequest) {
         url.searchParams.set("redirectTo", "/stats");
         return NextResponse.redirect(url);
       }
-
-      // Verify the session
-      try {
-        const verifyResponse = await fetch(
-          new URL("/api/verify", request.url),
-          {
-            headers: {
-              Cookie: `__session=${session.value}`,
-            },
-          }
-        );
-
-        const { isValid } = await verifyResponse.json();
-
-        if (!isValid) {
-          // If session is invalid, redirect to login
-          const url = new URL("/login", request.url);
-          url.searchParams.set("redirectTo", "/stats");
-          const response = NextResponse.redirect(url);
-          response.cookies.delete("__session");
-          return response;
-        }
-
-        return NextResponse.next();
-      } catch (error) {
-        console.error("Failed to verify session for /stats:", error);
-        const url = new URL("/login", request.url);
-        url.searchParams.set("redirectTo", "/stats");
-        const response = NextResponse.redirect(url);
-        response.cookies.delete("__session");
-        return response;
-      }
+      // Pass through the session cookie
+      const response = NextResponse.next();
+      response.cookies.set("__session", session.value);
+      return response;
     }
 
-    // Handle /daily route - ensure proper auth state
+    // Handle /daily route - allow access to all
     if (request.nextUrl.pathname === "/daily") {
-      if (!session) {
-        // Allow access without session (for non-logged in users)
-        return NextResponse.next();
-      }
-
-      // If there is a session, verify it's valid
-      try {
-        const verifyResponse = await fetch(
-          new URL("/api/verify", request.url),
-          {
-            headers: {
-              Cookie: `__session=${session.value}`,
-            },
-          }
-        );
-
-        const { isValid } = await verifyResponse.json();
-
-        if (!isValid) {
-          // If session is invalid, clear it and allow access as non-logged in user
-          const response = NextResponse.next();
-          response.cookies.delete("__session");
-          return response;
-        }
-
-        return NextResponse.next();
-      } catch (error) {
-        // If verification fails, clear session and allow access as non-logged in user
-        console.error("Failed to verify session for /daily:", error);
-        const response = NextResponse.next();
-        response.cookies.delete("__session");
-        return response;
-      }
+      return NextResponse.next();
     }
 
-    // Handle /admin routes
+    // Handle /admin routes - verify admin status
     if (request.nextUrl.pathname.startsWith("/admin")) {
       if (!session) {
         const url = new URL("/login", request.url);
@@ -110,29 +50,46 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url);
       }
 
-      // Verify the session by calling our API route
-      const verifyResponse = await fetch(new URL("/api/verify", request.url), {
-        headers: {
-          Cookie: `__session=${session.value}`,
-        },
-      });
+      // Verify the session
+      try {
+        // Create a new URL object from the current request URL
+        const verifyUrl = new URL("/api/verify", request.url);
 
-      const { isValid, isAdmin } = await verifyResponse.json();
+        const verifyResponse = await fetch(verifyUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `__session=${session.value}`,
+          },
+        });
 
-      if (!isValid || !isAdmin) {
+        if (!verifyResponse.ok) {
+          return NextResponse.redirect(new URL("/", request.url));
+        }
+
+        const data = await verifyResponse.json();
+
+        if (!data.isValid) {
+          return NextResponse.redirect(new URL("/login", request.url));
+        }
+
+        if (!data.isAdmin) {
+          return NextResponse.redirect(new URL("/", request.url));
+        }
+
+        // Pass through the session cookie
+        const response = NextResponse.next();
+        response.cookies.set("__session", session.value);
+        return response;
+      } catch (error) {
+        console.error("Middleware error:", error);
         return NextResponse.redirect(new URL("/", request.url));
       }
-
-      return NextResponse.next();
     }
 
     return NextResponse.next();
   } catch (error) {
     console.error("Middleware error:", error);
-    // If there's an error verifying the session or the user is not an admin,
-    // redirect to login
-    const url = new URL("/login", request.url);
-    url.searchParams.set("redirectTo", request.nextUrl.pathname);
-    return NextResponse.redirect(url);
+    return NextResponse.next();
   }
 }

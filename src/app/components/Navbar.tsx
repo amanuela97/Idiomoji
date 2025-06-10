@@ -32,6 +32,11 @@ export default function Navbar() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // Close dropdown when user changes
+  useEffect(() => {
+    setShowDropdown(false);
+  }, [user]);
+
   useEffect(() => {
     const checkAdminStatus = async () => {
       if (user) {
@@ -47,6 +52,7 @@ export default function Navbar() {
   const handleLogout = async () => {
     try {
       setIsAdmin(false); // Reset admin state immediately
+      setShowDropdown(false); // Close dropdown before logging out
 
       // Clear localStorage
       localStorage.removeItem("currentGame");
@@ -92,7 +98,7 @@ export default function Navbar() {
             </Link>
 
             {/* Navigation Items */}
-            <div className="hidden md:flex ml-10 space-x-4">
+            <div className="hidden md:flex ml-6 space-x-2">
               {navItems.map((item) => (
                 <Button
                   key={item.href}
@@ -207,7 +213,11 @@ export default function Navbar() {
                 )}
               </div>
             ) : (
-              <Button asChild>
+              <Button
+                variant="ghost"
+                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                asChild
+              >
                 <Link href="/login">Login</Link>
               </Button>
             )}

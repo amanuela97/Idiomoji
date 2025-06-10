@@ -2,11 +2,12 @@
 
 import { signInWithGoogle, initializeUserProfile } from "@/app/lib/api";
 import { toast } from "sonner";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/lib/auth-context";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
+import { Suspense } from "react";
 
 function LoginContent() {
   const [isLoading, setIsLoading] = useState(false);
@@ -18,7 +19,7 @@ function LoginContent() {
   useEffect(() => {
     // If user is already logged in, redirect them
     if (user) {
-      router.push(redirectTo || "/daily");
+      router.replace(redirectTo || "/daily");
     }
   }, [user, router, redirectTo]);
 
@@ -51,7 +52,11 @@ function LoginContent() {
       toast.success("Successfully signed in!", {
         duration: 1000,
       });
-      router.push(redirectTo || "/daily");
+
+      // Wait a bit for the session cookie to be set
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      router.replace(redirectTo || "/daily");
     } catch (error) {
       if (error instanceof Error) {
         toast.error(error.message);
@@ -105,7 +110,7 @@ export default function LoginPage() {
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+          <div className="text-2xl font-bold">Loading...</div>
         </div>
       }
     >
