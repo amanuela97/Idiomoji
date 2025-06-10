@@ -14,7 +14,6 @@ import {
   TelegramIcon,
 } from "react-share";
 import { FirebaseError } from "firebase/app";
-import { FirestoreError } from "firebase/firestore";
 
 const MAX_ATTEMPTS = 5;
 const HINT_PENALTY = 20;
@@ -41,69 +40,7 @@ export default function DailyGame() {
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
   const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null);
-
-  const checkPreviousGame = useCallback(async () => {
-    if (authLoading) return; // Don't proceed if auth is still loading
-
-    const today = new Date().toISOString().split("T")[0];
-
-    try {
-      if (user) {
-        // If user is logged in, try to load their game state from Firebase first
-        const stats = await getPlayerStats(user.uid);
-        setPlayerStats(stats);
-        if (stats && stats.lastPlayed === today) {
-          const todayStats = stats.history.find((stat) => stat.date === today);
-          if (todayStats) {
-            // User has played today, reconstruct their game state
-            setAttempts(todayStats.attemptValues || []); // Use actual attempts from stats
-            setShowHint(todayStats.usedHint);
-            setShowPatternHint(todayStats.usedPatternHint);
-            setGameOver(true);
-            setWon(todayStats.won);
-            setScore(todayStats.score);
-            return; // Return early to prevent loading from localStorage
-          }
-        }
-      }
-
-      // Only check localStorage if we haven't loaded state from Firebase
-      const lastGame = localStorage.getItem("lastPlayed");
-      if (lastGame === today) {
-        // Player already played today, load their previous game state
-        const savedState = JSON.parse(
-          localStorage.getItem("currentGame") || "{}"
-        );
-        if (savedState.attempts) {
-          setAttempts(savedState.attempts);
-          setShowHint(savedState.showHint || false);
-          setShowPatternHint(savedState.showPatternHint || false);
-          setGameOver(savedState.gameOver || false);
-          setWon(savedState.won || false);
-          setScore(savedState.score || 0);
-        }
-      }
-    } catch (err) {
-      if (err instanceof FirestoreError && err.code === "permission-denied") {
-        // Clear local storage if Firebase denies permission
-        localStorage.removeItem("currentGame");
-        localStorage.removeItem("lastPlayed");
-        localStorage.removeItem("playerStats");
-        // Reset game state
-        setAttempts([]);
-        setShowHint(false);
-        setShowPatternHint(false);
-        setGameOver(false);
-        setWon(false);
-        setScore(0);
-      } else {
-        console.error("Error checking previous game:", err);
-        setError("Failed to load game state");
-      }
-    }
-  }, [user, authLoading]);
 
   const loadDailyPuzzle = useCallback(async () => {
     if (authLoading) return; // Don't proceed if auth is still loading
@@ -115,6 +52,58 @@ export default function DailyGame() {
         return;
       }
       setPuzzle(dailyPuzzle);
+
+      // Now that we have the puzzle, check previous game state
+      const today = new Date().toISOString().split("T")[0];
+      const lastGame = localStorage.getItem("lastPlayed");
+      const currentPuzzleId = localStorage.getItem("currentPuzzleId");
+      const savedState = JSON.parse(
+        localStorage.getItem("currentGame") || "{}"
+      );
+
+      // If user has played today and it's the same puzzle, restore their state
+      if (
+        lastGame === today &&
+        dailyPuzzle.id === currentPuzzleId &&
+        savedState.attempts
+      ) {
+        setAttempts(savedState.attempts);
+        setShowHint(savedState.showHint || false);
+        setShowPatternHint(savedState.showPatternHint || false);
+        setGameOver(savedState.gameOver || false);
+        setWon(savedState.won || false);
+        setScore(savedState.score || 0);
+      }
+
+      // If user is logged in, check Firebase state
+      if (user) {
+        const stats = await getPlayerStats(user.uid);
+        setPlayerStats(stats);
+        if (stats && stats.lastPlayed === today) {
+          const todayStats = stats.history.find((stat) => stat.date === today);
+          if (todayStats) {
+            setAttempts(todayStats.attemptValues || []);
+            setShowHint(todayStats.usedHint);
+            setShowPatternHint(todayStats.usedPatternHint);
+            setGameOver(true);
+            setWon(todayStats.won);
+            setScore(todayStats.score);
+
+            // Update localStorage to match Firebase state
+            saveGameState(
+              {
+                attempts: todayStats.attemptValues || [],
+                showHint: todayStats.usedHint,
+                showPatternHint: todayStats.usedPatternHint,
+                gameOver: true,
+                won: todayStats.won,
+                score: todayStats.score,
+              },
+              dailyPuzzle.id
+            );
+          }
+        }
+      }
     } catch (err) {
       if (err instanceof FirebaseError && err.code === "permission-denied") {
         setError("Please log in to play");
@@ -125,40 +114,38 @@ export default function DailyGame() {
     } finally {
       setLoading(false);
     }
-  }, [authLoading]);
+  }, [authLoading, user]);
 
   useEffect(() => {
     // Wait for auth to be ready
     if (authLoading) return;
 
-    // Initialize game state
-    if (!isInitialized) {
-      loadDailyPuzzle();
-      checkPreviousGame();
-      setIsInitialized(true);
-    }
-  }, [authLoading, isInitialized, loadDailyPuzzle, checkPreviousGame]);
+    // Load puzzle and check previous game state
+    loadDailyPuzzle();
+  }, [authLoading, loadDailyPuzzle]);
 
   // Clear game state when user changes
   useEffect(() => {
     if (!user) {
-      // Clear localStorage when logging out
-      localStorage.removeItem("currentGame");
-      localStorage.removeItem("lastPlayed");
-      localStorage.removeItem("playerStats");
+      // Clear Firebase-related state but keep local game state
+      setPlayerStats(null);
     }
   }, [user]);
 
-  const saveGameState = (gameState: {
-    attempts: string[];
-    showHint: boolean;
-    showPatternHint: boolean;
-    gameOver: boolean;
-    won: boolean;
-    score: number;
-  }) => {
+  const saveGameState = (
+    gameState: {
+      attempts: string[];
+      showHint: boolean;
+      showPatternHint: boolean;
+      gameOver: boolean;
+      won: boolean;
+      score: number;
+    },
+    puzzleId: string
+  ) => {
     localStorage.setItem("currentGame", JSON.stringify(gameState));
     localStorage.setItem("lastPlayed", new Date().toISOString().split("T")[0]);
+    localStorage.setItem("currentPuzzleId", puzzleId);
   };
 
   const handleGuess = () => {
@@ -189,14 +176,17 @@ export default function DailyGame() {
       updateStats(false, MAX_ATTEMPTS, false, false, 0);
     }
 
-    saveGameState({
-      attempts: newAttempts,
-      showHint,
-      showPatternHint,
-      gameOver: newAttempts.length >= MAX_ATTEMPTS || isCorrect,
-      won: isCorrect,
-      score: isCorrect ? score : 0,
-    });
+    saveGameState(
+      {
+        attempts: newAttempts,
+        showHint,
+        showPatternHint,
+        gameOver: newAttempts.length >= MAX_ATTEMPTS || isCorrect,
+        won: isCorrect,
+        score: isCorrect ? score : 0,
+      },
+      puzzle.id
+    );
   };
 
   const generateLetterPattern = (answer: string) => {
@@ -304,8 +294,8 @@ export default function DailyGame() {
 
     return `Idiomoji - ${today}\n${emojiGrid}\n${
       won
-        ? `Solved in ${attempts.length + 1} ${
-            attempts.length + 1 === 1 ? "try" : "tries"
+        ? `Solved in ${attempts.length} ${
+            attempts.length === 1 ? "try" : "tries"
           } (${score} points)!`
         : "Try again tomorrow!"
     }`;
@@ -450,8 +440,8 @@ export default function DailyGame() {
           {won ? (
             <>
               <div className="text-green-500 text-2xl">
-                🎉 Congratulations! You got it in {attempts.length + 1}{" "}
-                attempts! (+{score} points)
+                🎉 Congratulations! You got it in {attempts.length} attempts! (+
+                {score} points)
               </div>
               <div className="mt-4">
                 <RevealAnswer answer={puzzle.answer} />
@@ -637,11 +627,7 @@ function RevealAnswer({ answer }: { answer: string }) {
 
   useEffect(() => {
     const letterCount = answer.length;
-
-    // Start with all letters hidden
     setRevealedLetters(new Array(letterCount).fill(false));
-
-    // Reveal letters one by one
     for (let i = 0; i < letterCount; i++) {
       setTimeout(() => {
         setRevealedLetters((prev) => {
@@ -654,25 +640,30 @@ function RevealAnswer({ answer }: { answer: string }) {
   }, [answer]);
 
   return (
-    <div className="font-mono text-xl tracking-wider">
+    <div className="font-mono text-xl">
       {answer.split("").map((char, index) => (
         <span
           key={index}
-          className="relative inline-block w-[1ch] text-center"
-          style={{ marginRight: char === " " ? "0.5ch" : "0" }}
+          className="relative inline-flex justify-center items-center"
+          style={{
+            width: "1.5ch",
+            marginRight: char === " " ? "0.5ch" : "0",
+            height: "1.5em",
+          }}
         >
           {/* Base layer with dash */}
-          <span className="text-gray-400">
+          <span className="absolute text-gray-400 translate-y-[0.1em]">
             {char === " " ? "\u00A0" : /[a-zA-Z]/.test(char) ? "_" : char}
           </span>
 
           {/* Overlay with actual letter */}
           <span
-            className={`absolute left-0 top-0 w-full transition-all duration-300 ${
+            className={`absolute transition-all duration-300 ${
               revealedLetters[index]
                 ? "opacity-100 transform-none"
                 : "opacity-0 -translate-y-2"
             }`}
+            style={{ transform: "translateY(-0.05em)" }}
           >
             {char === " " ? "\u00A0" : char}
           </span>

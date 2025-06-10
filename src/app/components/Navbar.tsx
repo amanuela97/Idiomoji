@@ -89,12 +89,11 @@ export default function Navbar() {
               <Image
                 src="/logo.webp"
                 alt="Idiomoji Logo"
-                width={62}
-                height={62}
+                width={60}
+                height={60}
                 className="rounded-lg"
                 priority
               />
-              <span>Idiomoji</span>
             </Link>
 
             {/* Navigation Items */}

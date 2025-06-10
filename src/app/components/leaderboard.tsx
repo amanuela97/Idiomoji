@@ -123,24 +123,26 @@ export function Leaderboard() {
             key={player.id}
             className="bg-white rounded-md border p-4 shadow-sm"
           >
-            <div className="flex items-center gap-4">
-              <div className="flex items-center justify-center w-12">
-                <Medal rank={index + 1} />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="flex items-center gap-4 w-full sm:w-auto">
+                <div className="flex items-center justify-center w-12">
+                  <Medal rank={index + 1} />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12 border-2 border-primary/10">
+                    <AvatarImage
+                      src={player.photoURL || "/placeholder.svg"}
+                      alt={player.name}
+                    />
+                    <AvatarFallback>
+                      {player.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="font-medium text-lg">{player.name}</div>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12 border-2 border-primary/10">
-                  <AvatarImage
-                    src={player.photoURL || "/placeholder.svg"}
-                    alt={player.name}
-                  />
-                  <AvatarFallback>
-                    {player.name.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="font-medium text-lg">{player.name}</div>
-              </div>
-              <div className="ml-auto grid grid-cols-3 gap-8">
-                <div className="text-right">
+              <div className="grid grid-cols-3 gap-4 sm:gap-8 w-full sm:w-auto sm:ml-auto">
+                <div className="text-left sm:text-right">
                   <div className="text-sm text-muted-foreground">
                     Total Score
                   </div>
@@ -148,17 +150,17 @@ export function Leaderboard() {
                     {formatNumber(player.score)}
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <div className="text-sm text-muted-foreground">Win Rate</div>
                   <div className="font-medium">{player.winRate}%</div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <div className="text-sm text-muted-foreground">
                     Current Streak
                   </div>
                   <div className="font-medium">
                     {player.streak > 0 ? (
-                      <span className="flex items-center justify-end gap-1">
+                      <span className="flex items-center sm:justify-end gap-1">
                         <span className="text-orange-500">🔥</span>{" "}
                         {player.streak}
                       </span>
