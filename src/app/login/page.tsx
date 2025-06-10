@@ -2,12 +2,13 @@
 
 import { signInWithGoogle, initializeUserProfile } from "@/app/lib/api";
 import { toast } from "sonner";
-import { useState, useEffect } from "react";
-import { auth } from "@/app/lib/firebase-client";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/lib/auth-context";
+import { Loader2 } from "lucide-react";
+import Image from "next/image";
 
-export default function LoginPage() {
+function LoginContent() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
@@ -47,23 +48,9 @@ export default function LoginPage() {
       // Initialize or update user profile in Firestore
       await initializeUserProfile(user);
 
-      // Check if user should be an admin and set claim
-      const adminResponse = await fetch("/api/check-admin", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ uid: user.uid }),
+      toast.success("Successfully signed in!", {
+        duration: 1000,
       });
-
-      const adminData = await adminResponse.json();
-
-      if (adminResponse.ok && adminData.message === "Admin claim set") {
-        // Force token refresh to get the new admin claim
-        await auth.currentUser?.getIdToken(true);
-      }
-
-      toast.success("Successfully signed in!");
       router.push(redirectTo || "/daily");
     } catch (error) {
       if (error instanceof Error) {
@@ -77,66 +64,52 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="max-w-md w-full space-y-8 p-10 bg-white rounded-xl shadow-lg">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4">
+      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow-md">
         <div className="text-center">
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
-            Welcome to Idiomoji
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Sign in to track your progress and submit puzzles
+          <h2 className="text-3xl font-bold mb-2">Welcome to Idiomoji</h2>
+          <p className="text-gray-600">
+            Sign in to play and track your progress
           </p>
         </div>
-        <div className="mt-8">
-          <button
-            onClick={handleLogin}
-            disabled={isLoading}
-            className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-              isLoading ? "opacity-50 cursor-not-allowed" : ""
-            }`}
-          >
-            <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-              {isLoading ? (
-                <svg
-                  className="animate-spin h-5 w-5 text-blue-500"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="h-5 w-5 text-blue-500 group-hover:text-blue-400"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              )}
-            </span>
-            {isLoading ? "Signing in..." : "Sign in with Google"}
-          </button>
-        </div>
+
+        <button
+          onClick={handleLogin}
+          disabled={isLoading}
+          className="w-full flex items-center justify-center gap-3 cursor-pointer bg-white border border-gray-300 rounded-lg px-6 py-3 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <Image
+              src="/google.webp"
+              alt="Google"
+              className="w-5 h-5"
+              width={20}
+              height={20}
+            />
+          )}
+          {isLoading ? "Signing in..." : "Continue with Google"}
+        </button>
+
+        <p className="text-sm text-gray-500 text-center">
+          By signing in, you agree to our Terms of Service and Privacy Policy
+        </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }
