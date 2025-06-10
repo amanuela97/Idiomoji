@@ -19,6 +19,7 @@ const navItems = [
   { name: "Daily Puzzle", href: "/daily" },
   { name: "Contribute", href: "/submit" },
   { name: "Leaderboard", href: "/leaderboard" },
+  { name: "My Stats", href: "/stats" },
 ] as const;
 
 // Admin-only navigation items
@@ -36,6 +37,8 @@ export default function Navbar() {
       if (user) {
         const tokenResult = await user.getIdTokenResult();
         setIsAdmin(tokenResult.claims.admin === true);
+      } else {
+        setIsAdmin(false);
       }
     };
     checkAdminStatus();
@@ -43,6 +46,8 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     try {
+      setIsAdmin(false); // Reset admin state immediately
+
       // Clear localStorage
       localStorage.removeItem("currentGame");
       localStorage.removeItem("lastPlayed");

@@ -55,7 +55,7 @@ export default function Home() {
           <div className="text-gray-600 mb-4">Can you guess this idiom?</div>
           <Button
             size="lg"
-            className="bg-purple-500 hover:bg-purple-600 text-white rounded-full px-8"
+            className="bg-purple-500 hover:bg-purple-600 text-white rounded-full px-8 cursor-pointer"
             onClick={() => router.push("/daily")}
           >
             <Play className="mr-2 h-5 w-5" />
@@ -67,7 +67,7 @@ export default function Home() {
       {/* Game Modes - Simple Grid */}
       <div className="grid md:grid-cols-3 gap-6 mb-12">
         <button
-          className="group text-left p-6 rounded-2xl bg-white/60 hover:bg-white/80 transition-all hover:scale-105 hover:shadow-lg border-0"
+          className="group relative text-left p-6 rounded-2xl bg-white/60 hover:bg-white/80 transition-all hover:scale-105 hover:shadow-lg border-0 min-h-[140px]"
           onMouseEnter={() => setHoveredMode("daily")}
           onMouseLeave={() => setHoveredMode(null)}
           onClick={() => router.push("/daily")}
@@ -81,15 +81,17 @@ export default function Home() {
               <p className="text-sm text-gray-600">One puzzle per day</p>
             </div>
           </div>
-          {hoveredMode === "daily" && (
-            <div className="text-sm text-gray-600 animate-in slide-in-from-top-1">
-              Everyone gets the same puzzle. Share your results!
-            </div>
-          )}
+          <div className="h-[40px]">
+            {hoveredMode === "daily" && (
+              <div className="text-sm text-gray-600 animate-in slide-in-from-top-1">
+                Everyone gets the same puzzle. Share your results!
+              </div>
+            )}
+          </div>
         </button>
 
         <button
-          className="group text-left p-6 rounded-2xl bg-white/60 hover:bg-white/80 transition-all hover:scale-105 hover:shadow-lg border-0"
+          className="group relative text-left p-6 rounded-2xl bg-white/60 hover:bg-white/80 transition-all hover:scale-105 hover:shadow-lg border-0 min-h-[140px]"
           onMouseEnter={() => setHoveredMode("time")}
           onMouseLeave={() => setHoveredMode(null)}
         >
@@ -102,15 +104,17 @@ export default function Home() {
               <p className="text-sm text-gray-600">2 minutes, max points</p>
             </div>
           </div>
-          {hoveredMode === "time" && (
-            <div className="text-sm text-gray-600 animate-in slide-in-from-top-1">
-              Solve as many as you can before time runs out!
-            </div>
-          )}
+          <div className="h-[40px]">
+            {hoveredMode === "time" && (
+              <div className="text-sm text-gray-600 animate-in slide-in-from-top-1">
+                Solve as many as you can before time runs out!
+              </div>
+            )}
+          </div>
         </button>
 
         <button
-          className="group text-left p-6 rounded-2xl bg-white/60 hover:bg-white/80 transition-all hover:scale-105 hover:shadow-lg border-0"
+          className="group relative text-left p-6 rounded-2xl bg-white/60 hover:bg-white/80 transition-all hover:scale-105 hover:shadow-lg border-0 min-h-[140px]"
           onMouseEnter={() => setHoveredMode("duel")}
           onMouseLeave={() => setHoveredMode(null)}
         >
@@ -123,11 +127,13 @@ export default function Home() {
               <p className="text-sm text-gray-600">Race other players</p>
             </div>
           </div>
-          {hoveredMode === "duel" && (
-            <div className="text-sm text-gray-600 animate-in slide-in-from-top-1">
-              First to guess correctly wins the round!
-            </div>
-          )}
+          <div className="h-[40px]">
+            {hoveredMode === "duel" && (
+              <div className="text-sm text-gray-600 animate-in slide-in-from-top-1">
+                First to guess correctly wins the round!
+              </div>
+            )}
+          </div>
         </button>
       </div>
 
@@ -164,7 +170,7 @@ export default function Home() {
           Leaderboard
         </Link>
         <Link
-          href="/daily"
+          href="/stats"
           className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
         >
           <BarChart3 className="h-4 w-4" />

@@ -64,25 +64,25 @@ export default function DailyGame() {
             setGameOver(true);
             setWon(todayStats.won);
             setScore(todayStats.score);
-            return;
+            return; // Return early to prevent loading from localStorage
           }
         }
-      } else {
-        // If not logged in, check localStorage
-        const lastGame = localStorage.getItem("lastPlayed");
-        if (lastGame === today) {
-          // Player already played today, load their previous game state
-          const savedState = JSON.parse(
-            localStorage.getItem("currentGame") || "{}"
-          );
-          if (savedState.attempts) {
-            setAttempts(savedState.attempts);
-            setShowHint(savedState.showHint || false);
-            setShowPatternHint(savedState.showPatternHint || false);
-            setGameOver(savedState.gameOver || false);
-            setWon(savedState.won || false);
-            setScore(savedState.score || 0);
-          }
+      }
+
+      // Only check localStorage if we haven't loaded state from Firebase
+      const lastGame = localStorage.getItem("lastPlayed");
+      if (lastGame === today) {
+        // Player already played today, load their previous game state
+        const savedState = JSON.parse(
+          localStorage.getItem("currentGame") || "{}"
+        );
+        if (savedState.attempts) {
+          setAttempts(savedState.attempts);
+          setShowHint(savedState.showHint || false);
+          setShowPatternHint(savedState.showPatternHint || false);
+          setGameOver(savedState.gameOver || false);
+          setWon(savedState.won || false);
+          setScore(savedState.score || 0);
         }
       }
     } catch (err) {
@@ -230,17 +230,21 @@ export default function DailyGame() {
 
     if (storedStats) {
       stats = JSON.parse(storedStats);
-      stats.totalGames += 1;
-      if (didWin) {
-        stats.totalWins += 1;
-        stats.currentStreak += 1;
-        stats.maxStreak = Math.max(stats.maxStreak, stats.currentStreak);
-      } else {
-        stats.currentStreak = 0;
+      // Check if we already have an entry for today
+      const todayEntry = stats.history.find((entry) => entry.date === today);
+      if (!todayEntry) {
+        stats.totalGames += 1;
+        if (didWin) {
+          stats.totalWins += 1;
+          stats.currentStreak += 1;
+          stats.maxStreak = Math.max(stats.maxStreak, stats.currentStreak);
+        } else {
+          stats.currentStreak = 0;
+        }
+        stats.totalScore += finalScore;
+        stats.lastPlayed = today;
+        stats.history.push(dailyStats);
       }
-      stats.totalScore += finalScore;
-      stats.lastPlayed = today;
-      stats.history.push(dailyStats);
 
       // Update user info in case it changed
       if (user) {

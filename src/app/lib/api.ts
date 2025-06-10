@@ -75,7 +75,7 @@ export const savePlayerStats = async (
 ): Promise<void> => {
   try {
     const playerRef = doc(db, "players", uid);
-    await setDoc(playerRef, { stats }, { merge: true });
+    await setDoc(playerRef, stats, { merge: true });
   } catch (error) {
     console.error("Error saving player stats:", error);
     throw error;
@@ -102,7 +102,9 @@ export const getPlayerStats = async (
       return null;
     }
 
-    return playerDoc.data().stats as PlayerStats;
+    const data = playerDoc.data();
+    // Handle both old (nested) and new (flat) data structure
+    return data as PlayerStats;
   } catch (error) {
     if (error instanceof FirestoreError && error.code === "permission-denied") {
       console.log(
@@ -180,16 +182,16 @@ export function subscribeToLeaderboard(
 
       snapshot.forEach((doc) => {
         const data = doc.data();
-        if (data.stats) {
-          const stats = calculatePlayerStats(data.stats);
-          players.push({
-            id: doc.id,
-            name: data.name || "Anonymous",
-            email: data.email || "",
-            photoURL: data.photoURL || "",
-            ...stats,
-          });
-        }
+        // Handle both old (nested) and new (flat) data structure
+        const playerData = data.stats || data;
+        const stats = calculatePlayerStats(playerData);
+        players.push({
+          id: doc.id,
+          name: playerData.name || "Anonymous",
+          email: playerData.email || "",
+          photoURL: playerData.photoURL || "",
+          ...stats,
+        });
       });
 
       callback(players);

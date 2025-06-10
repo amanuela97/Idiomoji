@@ -19,6 +19,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { db } from "@/app/lib/firebase-client";
+import { toast } from "sonner";
 
 type IdiomSubmission = {
   id: string;
@@ -86,6 +87,43 @@ export default function AdminReview() {
     }
   };
 
+  const checkAnswerUniqueness = async (answer: string): Promise<boolean> => {
+    try {
+      // Check in dailyPuzzles collection
+      const dailyPuzzlesRef = collection(db, "dailyPuzzles");
+      const dailyPuzzlesQuery = query(
+        dailyPuzzlesRef,
+        where("answer", "==", answer.toLowerCase().trim())
+      );
+      const dailyPuzzlesSnapshot = await getDocs(dailyPuzzlesQuery);
+
+      if (!dailyPuzzlesSnapshot.empty) {
+        toast.error(`This idiom already exists in daily puzzles: "${answer}"`);
+        return false;
+      }
+
+      // Check in idiomSubmissions collection for approved submissions
+      const submissionsRef = collection(db, "idiomSubmissions");
+      const submissionsQuery = query(
+        submissionsRef,
+        where("answer", "==", answer.toLowerCase().trim()),
+        where("status", "==", "approved")
+      );
+      const submissionsSnapshot = await getDocs(submissionsQuery);
+
+      if (!submissionsSnapshot.empty) {
+        toast.error(`This idiom has already been approved: "${answer}"`);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error checking answer uniqueness:", error);
+      toast.error("Failed to check if idiom already exists");
+      return false;
+    }
+  };
+
   // Effect to handle approval when selectedSubmission changes
   useEffect(() => {
     const approveSubmission = async () => {
@@ -95,9 +133,17 @@ export default function AdminReview() {
         // Check if date is available
         const isDateAvailable = await checkDateAvailability(selectedDate);
         if (!isDateAvailable) {
-          alert(
+          toast.error(
             `A puzzle is already scheduled for ${selectedDate}. Please choose a different date.`
           );
+          setSelectedSubmission(null);
+          setIsApproving(false);
+          return;
+        }
+
+        // Check if answer is unique
+        const isUnique = await checkAnswerUniqueness(selectedSubmission.answer);
+        if (!isUnique) {
           setSelectedSubmission(null);
           setIsApproving(false);
           return;
@@ -107,7 +153,7 @@ export default function AdminReview() {
         const dailyPuzzleRef = doc(db, "dailyPuzzles", selectedDate);
         await setDoc(dailyPuzzleRef, {
           emoji: selectedSubmission.emoji,
-          answer: selectedSubmission.answer,
+          answer: selectedSubmission.answer.toLowerCase().trim(), // Store answer in lowercase
           hint: selectedSubmission.hint,
           submittedBy: selectedSubmission.submittedBy,
           createdAt: serverTimestamp(),
@@ -126,6 +172,8 @@ export default function AdminReview() {
           availableDate: selectedDate,
         });
 
+        toast.success("Puzzle approved successfully!");
+
         // Clear selection and refresh
         setSelectedSubmission(null);
         setSelectedDate("");
@@ -133,9 +181,9 @@ export default function AdminReview() {
         fetchSubmissions();
       } catch (error) {
         console.error("Error approving submission:", error);
+        toast.error("Failed to approve puzzle");
         setSelectedSubmission(null);
         setIsApproving(false);
-        throw error;
       }
     };
 

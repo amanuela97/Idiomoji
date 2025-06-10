@@ -2,11 +2,24 @@
 
 import { signInWithGoogle, initializeUserProfile } from "@/app/lib/api";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { auth } from "@/app/lib/firebase-client";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/app/lib/auth-context";
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams?.get("redirectTo") ?? null;
+
+  useEffect(() => {
+    // If user is already logged in, redirect them
+    if (user) {
+      router.push(redirectTo || "/daily");
+    }
+  }, [user, router, redirectTo]);
 
   const handleLogin = async () => {
     if (isLoading) return;
@@ -50,9 +63,8 @@ export default function LoginPage() {
         await auth.currentUser?.getIdToken(true);
       }
 
-      // Success! Redirect to daily page with a refresh
       toast.success("Successfully signed in!");
-      window.location.href = "/daily";
+      router.push(redirectTo || "/daily");
     } catch (error) {
       if (error instanceof Error) {
         toast.error(error.message);
