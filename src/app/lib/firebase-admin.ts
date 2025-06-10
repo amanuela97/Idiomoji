@@ -14,7 +14,7 @@ function getPrivateKey() {
     throw new Error("FIREBASE_PRIVATE_KEY is not set in environment variables");
   }
   // If the key starts with quotation marks, parse it as JSON to handle escape sequences
-  return privateKey.startsWith('"') ? JSON.parse(privateKey) : privateKey;
+  return privateKey.replace(/\\n/g, "\n");
 }
 
 const serviceAccount = {
