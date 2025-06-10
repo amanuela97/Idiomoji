@@ -19,6 +19,20 @@ export default async function handler(
 
   try {
     const { uid } = req.body;
+    const sessionCookie = req.cookies.__session;
+
+    if (!sessionCookie) {
+      return res.status(401).json({ error: "No session cookie found" });
+    }
+
+    // Verify the session cookie first
+    const decodedClaims = await adminAuth.verifySessionCookie(
+      sessionCookie,
+      true
+    );
+    if (!decodedClaims) {
+      return res.status(401).json({ error: "Invalid session" });
+    }
 
     if (!uid?.trim()) {
       return res.status(400).json({ error: "Missing UID" });

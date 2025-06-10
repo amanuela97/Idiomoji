@@ -2,9 +2,8 @@
 
 import { signInWithGoogle, initializeUserProfile } from "@/app/lib/api";
 import { toast } from "sonner";
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/app/lib/auth-context";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
 import { Suspense } from "react";
@@ -12,16 +11,6 @@ import { Suspense } from "react";
 function LoginContent() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { user } = useAuth();
-  const searchParams = useSearchParams();
-  const redirectTo = searchParams?.get("redirectTo") ?? null;
-
-  useEffect(() => {
-    // If user is already logged in, redirect them
-    if (user) {
-      router.replace(redirectTo || "/daily");
-    }
-  }, [user, router, redirectTo]);
 
   const handleLogin = async () => {
     if (isLoading) return;
@@ -53,10 +42,11 @@ function LoginContent() {
         duration: 1000,
       });
 
-      // Wait a bit for the session cookie to be set
+      // Let the middleware handle the redirect
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      router.replace(redirectTo || "/daily");
+      // Refresh the page to let middleware handle redirect with new cookie
+      router.refresh();
     } catch (error) {
       if (error instanceof Error) {
         toast.error(error.message);

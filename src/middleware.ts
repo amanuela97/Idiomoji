@@ -3,58 +3,48 @@ import type { NextRequest } from "next/server";
 
 export const config = {
   matcher: ["/admin/:path*", "/login", "/daily", "/stats"],
-  runtime: "experimental-edge",
 };
 
 export async function middleware(request: NextRequest) {
   try {
     const session = request.cookies.get("__session");
+    const { pathname, origin } = request.nextUrl;
+    const redirectTo = request.nextUrl.searchParams.get("redirectTo");
 
     // Handle /login route - redirect to /daily if logged in
-    if (request.nextUrl.pathname === "/login") {
+    if (pathname === "/login") {
       if (session) {
         // If there's a stored redirect path, use it
-        const searchParams = new URL(request.url).searchParams;
-        const redirectTo = searchParams.get("redirectTo");
         if (redirectTo && redirectTo.startsWith("/")) {
-          return NextResponse.redirect(new URL(redirectTo, request.url));
+          return NextResponse.redirect(`${origin}${redirectTo}`);
         }
-        return NextResponse.redirect(new URL("/daily", request.url));
+        return NextResponse.redirect(`${origin}/daily`);
       }
       return NextResponse.next();
     }
 
     // Handle /stats route - ensure user is authenticated
-    if (request.nextUrl.pathname === "/stats") {
+    if (pathname === "/stats") {
       if (!session) {
-        const url = new URL("/login", request.url);
-        url.searchParams.set("redirectTo", "/stats");
-        return NextResponse.redirect(url);
+        return NextResponse.redirect(`${origin}/login?redirectTo=/stats`);
       }
-      // Pass through the session cookie
-      const response = NextResponse.next();
-      response.cookies.set("__session", session.value);
-      return response;
+      return NextResponse.next();
     }
 
     // Handle /daily route - allow access to all
-    if (request.nextUrl.pathname === "/daily") {
+    if (pathname === "/daily") {
       return NextResponse.next();
     }
 
     // Handle /admin routes - verify admin status
-    if (request.nextUrl.pathname.startsWith("/admin")) {
+    if (pathname.startsWith("/admin")) {
       if (!session) {
-        const url = new URL("/login", request.url);
-        url.searchParams.set("redirectTo", request.nextUrl.pathname);
-        return NextResponse.redirect(url);
+        return NextResponse.redirect(`${origin}/login?redirectTo=${pathname}`);
       }
 
       // Verify the session
       try {
-        // Create a new URL object from the current request URL
-        const verifyUrl = new URL("/api/verify", request.url);
-
+        const verifyUrl = new URL("/api/verify", origin);
         const verifyResponse = await fetch(verifyUrl, {
           method: "POST",
           headers: {
@@ -64,26 +54,23 @@ export async function middleware(request: NextRequest) {
         });
 
         if (!verifyResponse.ok) {
-          return NextResponse.redirect(new URL("/", request.url));
+          return NextResponse.redirect(`${origin}/`);
         }
 
         const data = await verifyResponse.json();
 
         if (!data.isValid) {
-          return NextResponse.redirect(new URL("/login", request.url));
+          return NextResponse.redirect(`${origin}/login`);
         }
 
         if (!data.isAdmin) {
-          return NextResponse.redirect(new URL("/", request.url));
+          return NextResponse.redirect(`${origin}/`);
         }
 
-        // Pass through the session cookie
-        const response = NextResponse.next();
-        response.cookies.set("__session", session.value);
-        return response;
+        return NextResponse.next();
       } catch (error) {
         console.error("Middleware error:", error);
-        return NextResponse.redirect(new URL("/", request.url));
+        return NextResponse.redirect(`${origin}/`);
       }
     }
 
