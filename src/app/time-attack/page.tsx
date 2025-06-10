@@ -97,6 +97,31 @@ export default function TimeAttackGame() {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
+          // Save the current attempt if there is one
+          if (currentAttempt.trim() && puzzleStartTime) {
+            const currentPuzzle = puzzles[currentPuzzleIndex];
+            if (currentPuzzle) {
+              const isCorrect =
+                currentAttempt.toLowerCase().trim() ===
+                currentPuzzle.answer.toLowerCase().trim();
+              const responseTime =
+                (new Date().getTime() - puzzleStartTime.getTime()) / 1000;
+              const lastAttempt: PuzzleAttempt = {
+                puzzleId: currentPuzzle.id,
+                answeredAt: Timestamp.now(),
+                correct: isCorrect,
+                responseTime,
+                scoreAwarded: isCorrect
+                  ? calculateScore(responseTime, attemptCount + 1)
+                  : 0,
+                attemptNumber: attemptCount + 1,
+              };
+              setPuzzleAttempts((prev) => [...prev, lastAttempt]);
+              if (isCorrect) {
+                setSessionScore((prev) => prev + lastAttempt.scoreAwarded);
+              }
+            }
+          }
           endGame();
           return 0;
         }
@@ -105,8 +130,14 @@ export default function TimeAttackGame() {
     }, 1000);
 
     return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isGameActive]);
+  }, [
+    isGameActive,
+    currentAttempt,
+    puzzleStartTime,
+    puzzles,
+    currentPuzzleIndex,
+    attemptCount,
+  ]);
 
   // Load more puzzles if needed
   useEffect(() => {
@@ -210,6 +241,9 @@ export default function TimeAttackGame() {
     setIsGameActive(false);
     setIsGameOver(true);
     const endTime = new Date();
+
+    // Small delay to ensure the last attempt state updates are processed
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     const session: Omit<TimeAttackSession, "id"> = {
       playerId: user.uid,
