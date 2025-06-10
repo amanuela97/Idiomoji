@@ -1,20 +1,45 @@
 // pages/api/check-admin.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { adminAuth } from "@/app/lib/firebase-admin";
 
-export async function POST(request: Request) {
+export const runtime = "nodejs";
+
+// Explicitly type the request body
+interface AdminCheckRequest {
+  uid: string;
+}
+
+export async function POST(request: NextRequest) {
   try {
-    const data = await request.json();
+    let data: AdminCheckRequest;
+    try {
+      data = await request.json();
+    } catch (parseError) {
+      console.error("JSON Parse Error:", parseError);
+      return NextResponse.json(
+        { error: "Invalid JSON in request body" },
+        { status: 400 }
+      );
+    }
+
     const uid = data.uid?.trim();
 
     if (!uid) {
       return NextResponse.json({ error: "Missing UID" }, { status: 400 });
     }
 
-    const ADMIN_LIST =
-      process.env.ADMIN_LIST?.split(",").map((id) => id.trim()) || [];
+    console.log("Processing request for UID:", uid);
+    console.log("ADMIN_LIST value:", process.env.ADMIN_LIST);
 
-    if (!ADMIN_LIST.includes(uid)) {
+    // Ensure ADMIN_LIST is properly typed and handled
+    const adminList = process.env.ADMIN_LIST ?? "";
+    const adminUids = adminList
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    console.log("Processed ADMIN_LIST:", adminUids);
+
+    if (!adminUids.includes(uid)) {
       return NextResponse.json(
         { message: "Not an admin UID" },
         { status: 403 }
@@ -34,7 +59,13 @@ export async function POST(request: Request) {
       );
     }
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Failed to set claim" }, { status: 500 });
+    console.error("General Error:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to set claim",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
   }
 }
