@@ -25,7 +25,7 @@ const navItems = [
 // Admin-only navigation items
 const adminItems = [{ name: "Admin Review", href: "/admin" }] as const;
 
-export function Navbar() {
+export default function Navbar() {
   const { user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
