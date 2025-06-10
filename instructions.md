@@ -1,25 +1,33 @@
-create a reusable component for showing the players rank in player-stats.tsx: Here is how you should implement it.
+You are tasked with implementing the Time Attack mode for the Idiomoji game using Next.js 15, TypeScript, Tailwind, and Firebase. Follow these steps:
 
-Here’s a tiered system you could implement:
-| **Rank** | **Criteria (example)** |
-| --------------- | ------------------------------------------------------------------------------- |
-| 🐣 New Player | `totalGames === 0` |
-| 🧩 Beginner | `totalGames >= 1 && totalScore < 100` |
-| 🎯 Intermediate | `totalScore >= 100 && winRate >= 40%` |
-| 💡 Pro Solver | `totalScore >= 250 && winRate >= 60% && maxStreak >= 3` |
-| 🧠 Idiom Master | `totalScore >= 500 && winRate >= 80% && maxStreak >= 5` |
-| 👑 Legendary | `totalScore >= 1000 && winRate >= 90% && maxStreak >= 10 && currentStreak >= 5` |
+1. Create (if not already available) a new Firestore collection called 'timeAttackSessions' with documents conforming to the TimeAttackSession type. This type should include fields for player ID, session start and end times, total score, and an array of PuzzleAttempt details.
 
-function getRankTitle(stats) {
-const { totalGames, totalWins, totalScore, maxStreak, currentStreak } = stats;
-const winRate = totalGames > 0 ? (totalWins / totalGames) \* 100 : 0;
+2. below is an example of the types needed to be created in /libs/types.ts:
+   export type TimeAttackSession = {
+   id: string;
+   playerId: string;
+   startTime: Date;
+   endTime: Date;
+   score: number;
+   puzzleAttempts: PuzzleAttempt[];
+   };
 
-if (totalGames === 0) return "🐣 New Player";
-if (totalScore < 100) return "🧩 Beginner";
-if (totalScore >= 100 && winRate >= 40) return "🎯 Intermediate";
-if (totalScore >= 250 && winRate >= 60 && maxStreak >= 3) return "💡 Pro Solver";
-if (totalScore >= 500 && winRate >= 80 && maxStreak >= 5) return "🧠 Idiom Master";
-if (totalScore >= 1000 && winRate >= 90 && maxStreak >= 10 && currentStreak >= 5)
-return "👑 Legendary";
-return "🧩 Beginner";
-}
+export type PuzzleAttempt = {
+puzzleId: string;
+answeredAt: Date;
+correct: boolean;
+responseTime: number; // seconds
+scoreAwarded: number;
+};
+
+3. In the Next.js project, create a new page at 'app/time-attack/page.tsx'. This page should:
+   - Initialize a 2-minute countdown timer using a combination of useState and useEffect.
+   - Lazy Load a set of approved idioms (from an existing pool, such as dailyPuzzles collection but properly randomized).
+   - Maybe you could use a method where you lazy fetch 15 randomized puzzles and then fetch 15 more if the user gets first 10 correct.
+   - Display each idiom puzzle along with an input field for guesses similar to the /daily page.
+   - Keep presenting the user a new puzzle either until the 2 minutes timer runs out or the users loses by using all attempts (max should be 3 attempts).
+   - Check the user answer and award points based on how quickly the answer is submitted.
+   - Record each puzzle attempt with its puzzle ID, response time, correctness, and points awarded.
+   - When time expires, compile the session data and update Firestore in the 'timeAttackSessions' collection
+   - Update the players collection with aggregated values such as totalTimeAttackGames, bestTimeAttackScore, etc for global leaderboard.
+   - Consider using a composite index in Firestore based on the score field for fast queries.

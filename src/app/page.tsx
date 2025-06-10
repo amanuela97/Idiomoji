@@ -94,6 +94,7 @@ export default function Home() {
           className="group relative text-left p-6 rounded-2xl bg-white/60 hover:bg-white/80 transition-all hover:scale-105 hover:shadow-lg border-0 min-h-[140px]"
           onMouseEnter={() => setHoveredMode("time")}
           onMouseLeave={() => setHoveredMode(null)}
+          onClick={() => router.push("/time-attack")}
         >
           <div className="flex items-center gap-3 mb-3">
             <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center">

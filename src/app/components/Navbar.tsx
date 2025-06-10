@@ -17,6 +17,7 @@ import {
 // Define navigation items
 const navItems = [
   { name: "Daily Puzzle", href: "/daily" },
+  { name: "Time Attack", href: "/time-attack" },
   { name: "Contribute", href: "/submit" },
   { name: "Leaderboard", href: "/leaderboard" },
   { name: "My Stats", href: "/stats" },

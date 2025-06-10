@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export const config = {
-  matcher: ["/admin/:path*", "/login", "/daily", "/stats"],
+  matcher: ["/admin/:path*", "/login", "/daily", "/stats", "/time-attack"],
 };
 
 export async function middleware(request: NextRequest) {
@@ -11,14 +11,22 @@ export async function middleware(request: NextRequest) {
     const { pathname, origin } = request.nextUrl;
     const redirectTo = request.nextUrl.searchParams.get("redirectTo");
 
-    // Handle /login route - redirect to /daily if logged in
+    // Handle /login route - redirect to /time-attack if logged in
     if (pathname === "/login") {
       if (session) {
         // If there's a stored redirect path, use it
         if (redirectTo && redirectTo.startsWith("/")) {
           return NextResponse.redirect(`${origin}${redirectTo}`);
         }
-        return NextResponse.redirect(`${origin}/daily`);
+        return NextResponse.redirect(`${origin}/time-attack`);
+      }
+      return NextResponse.next();
+    }
+
+    // Handle /time-attack route - ensure user is authenticated
+    if (pathname === "/time-attack") {
+      if (!session) {
+        return NextResponse.redirect(`${origin}/login?redirectTo=/time-attack`);
       }
       return NextResponse.next();
     }
