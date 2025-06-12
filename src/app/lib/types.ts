@@ -29,6 +29,7 @@ export type PuzzleAttempt = {
   responseTime: number; // seconds
   scoreAwarded: number;
   attemptNumber: number;
+  usedHint: boolean;
 };
 
 // Add PlayerTimeAttackStats to track player's time attack performance

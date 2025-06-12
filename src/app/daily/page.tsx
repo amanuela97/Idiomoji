@@ -167,26 +167,58 @@ export default function DailyGame() {
         (showHint ? HINT_PENALTY : 0) -
         (showPatternHint ? PATTERN_HINT_PENALTY : 0);
 
-      setScore(finalScore);
       setWon(true);
       setGameOver(true);
-      updateStats(true, attemptNumber, showHint, showPatternHint, finalScore);
-    } else if (newAttempts.length >= MAX_ATTEMPTS) {
-      setGameOver(true);
-      updateStats(false, MAX_ATTEMPTS, false, false, 0);
-    }
-
-    saveGameState(
-      {
-        attempts: newAttempts,
+      setScore(finalScore);
+      updateStats(
+        true,
+        attemptNumber,
         showHint,
         showPatternHint,
-        gameOver: newAttempts.length >= MAX_ATTEMPTS || isCorrect,
-        won: isCorrect,
-        score: isCorrect ? score : 0,
-      },
-      puzzle.id
-    );
+        finalScore,
+        newAttempts
+      );
+
+      saveGameState(
+        {
+          attempts: newAttempts,
+          showHint,
+          showPatternHint,
+          gameOver: true,
+          won: true,
+          score: finalScore,
+        },
+        puzzle.id
+      );
+    } else if (newAttempts.length >= MAX_ATTEMPTS) {
+      setGameOver(true);
+      updateStats(false, MAX_ATTEMPTS, false, false, 0, newAttempts);
+
+      saveGameState(
+        {
+          attempts: newAttempts,
+          showHint,
+          showPatternHint,
+          gameOver: true,
+          won: false,
+          score: 0,
+        },
+        puzzle.id
+      );
+    } else {
+      // Game continues
+      saveGameState(
+        {
+          attempts: newAttempts,
+          showHint,
+          showPatternHint,
+          gameOver: false,
+          won: false,
+          score: 0,
+        },
+        puzzle.id
+      );
+    }
   };
 
   const generateLetterPattern = (answer: string) => {
@@ -201,7 +233,8 @@ export default function DailyGame() {
     attemptCount: number,
     usedHint: boolean,
     usedPatternHint: boolean,
-    finalScore: number
+    finalScore: number,
+    currentAttempts: string[]
   ) => {
     const today = new Date().toISOString().split("T")[0];
     const dailyStats: DailyStats = {
@@ -211,30 +244,76 @@ export default function DailyGame() {
       usedPatternHint,
       won: didWin,
       score: finalScore,
-      attemptValues: attempts, // Store the actual attempt values
+      attemptValues: currentAttempts, // Use the passed attempts array
     };
 
-    // Update local storage stats
-    const storedStats = localStorage.getItem("playerStats");
+    // Get existing stats from Firebase first if user is logged in
     let stats: PlayerStats;
-
-    if (storedStats) {
-      stats = JSON.parse(storedStats);
-      // Check if we already have an entry for today
-      const todayEntry = stats.history.find((entry) => entry.date === today);
-      if (!todayEntry) {
-        stats.totalGames += 1;
-        if (didWin) {
-          stats.totalWins += 1;
-          stats.currentStreak += 1;
-          stats.maxStreak = Math.max(stats.maxStreak, stats.currentStreak);
-        } else {
-          stats.currentStreak = 0;
-        }
-        stats.totalScore += finalScore;
-        stats.lastPlayed = today;
-        stats.history.push(dailyStats);
+    if (user) {
+      const existingStats = await getPlayerStats(user.uid);
+      if (existingStats) {
+        stats = existingStats;
+      } else {
+        stats = {
+          name: user.displayName || "Anonymous",
+          email: user.email || "",
+          photoURL: user.photoURL || "",
+          totalGames: 0,
+          totalWins: 0,
+          totalScore: 0,
+          currentStreak: 0,
+          maxStreak: 0,
+          lastPlayed: "",
+          history: [],
+        };
       }
+    } else {
+      // For non-logged in users, get from localStorage
+      const storedStats = localStorage.getItem("playerStats");
+      if (storedStats) {
+        stats = JSON.parse(storedStats);
+      } else {
+        stats = {
+          name: "Anonymous",
+          email: "",
+          photoURL: "",
+          totalGames: 0,
+          totalWins: 0,
+          totalScore: 0,
+          currentStreak: 0,
+          maxStreak: 0,
+          lastPlayed: "",
+          history: [],
+        };
+      }
+    }
+
+    // Check if we already have an entry for today
+    const todayEntry = stats.history.find((entry) => entry.date === today);
+    if (!todayEntry) {
+      // Check if the last game was yesterday to maintain streak
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+      const isConsecutive = stats.lastPlayed === yesterdayStr;
+
+      stats.totalGames += 1;
+      if (didWin) {
+        stats.totalWins += 1;
+        // Only increment streak if won and either it's consecutive or no previous games
+        if (isConsecutive || !stats.lastPlayed) {
+          stats.currentStreak += 1;
+        } else {
+          stats.currentStreak = 1; // Reset to 1 if not consecutive
+        }
+        stats.maxStreak = Math.max(stats.maxStreak, stats.currentStreak);
+      } else {
+        stats.currentStreak = 0;
+      }
+      stats.totalScore += finalScore;
+      stats.lastPlayed = today;
+      stats.history.push(dailyStats);
 
       // Update user info in case it changed
       if (user) {
@@ -242,46 +321,17 @@ export default function DailyGame() {
         stats.email = user.email || "";
         stats.photoURL = user.photoURL || "";
       }
-    } else {
-      if (!user) {
-        // For non-logged in users
-        stats = {
-          name: "Anonymous",
-          email: "",
-          photoURL: "",
-          totalGames: 1,
-          totalWins: didWin ? 1 : 0,
-          totalScore: finalScore,
-          currentStreak: didWin ? 1 : 0,
-          maxStreak: didWin ? 1 : 0,
-          lastPlayed: today,
-          history: [dailyStats],
-        };
-      } else {
-        // For logged in users
-        stats = {
-          name: user.displayName || "Anonymous",
-          email: user.email || "",
-          photoURL: user.photoURL || "",
-          totalGames: 1,
-          totalWins: didWin ? 1 : 0,
-          totalScore: finalScore,
-          currentStreak: didWin ? 1 : 0,
-          maxStreak: didWin ? 1 : 0,
-          lastPlayed: today,
-          history: [dailyStats],
-        };
-      }
-    }
 
-    localStorage.setItem("playerStats", JSON.stringify(stats));
+      // Save to localStorage
+      localStorage.setItem("playerStats", JSON.stringify(stats));
 
-    // If user is logged in, sync with Firebase
-    if (user) {
-      try {
-        await savePlayerStats(user.uid, stats);
-      } catch (err) {
-        console.error("Failed to sync stats with server:", err);
+      // If user is logged in, sync with Firebase
+      if (user) {
+        try {
+          await savePlayerStats(user.uid, stats);
+        } catch (err) {
+          console.error("Failed to sync stats with server:", err);
+        }
       }
     }
   };
@@ -440,7 +490,8 @@ export default function DailyGame() {
           {won ? (
             <>
               <div className="text-green-500 text-2xl">
-                🎉 Congratulations! You got it in {attempts.length} attempts! (+
+                🎉 Congratulations! You got it in {attempts.length || 1}{" "}
+                attempts! (+
                 {score} points)
               </div>
               <div className="mt-4">

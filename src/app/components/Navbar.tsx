@@ -88,10 +88,10 @@ export default function Navbar() {
               className="flex items-center gap-2 text-2xl font-bold text-blue-600 hover:text-blue-700"
             >
               <Image
-                src="/logo.webp"
+                src="/favicon.png"
                 alt="Idiomoji Logo"
-                width={60}
-                height={60}
+                width={82}
+                height={82}
                 className="rounded-lg"
                 priority
               />

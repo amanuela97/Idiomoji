@@ -6,6 +6,7 @@ import {
   fetchRandomPuzzles,
   calculateScore,
   saveTimeAttackSession,
+  generateLetterHints,
 } from "@/app/lib/time-attack";
 import { IdiomPuzzle, TimeAttackSession, PuzzleAttempt } from "@/app/lib/types";
 import { Timestamp } from "firebase/firestore";
@@ -15,14 +16,6 @@ import { useRouter } from "next/navigation";
 const GAME_DURATION = 120; // 2 minutes in seconds
 const MAX_ATTEMPTS = 3;
 const INITIAL_PUZZLE_COUNT = 15;
-
-// Helper function to generate letter hints
-function generateLetterHints(answer: string): string {
-  return answer
-    .split("")
-    .map((char) => (char === " " ? " " : "-"))
-    .join("");
-}
 
 export default function TimeAttackGame() {
   const router = useRouter();
@@ -43,6 +36,7 @@ export default function TimeAttackGame() {
   const usedPuzzleIds = useRef<Set<string>>(new Set());
   const timerStartRef = useRef<number>(0);
   const requestAnimationFrameRef = useRef<number | null>(null);
+  const [usedHint, setUsedHint] = useState<boolean>(false);
 
   // Define endGame first since it's used in the timer effect
   const endGame = useCallback(async () => {
@@ -132,9 +126,10 @@ export default function TimeAttackGame() {
               correct: isCorrect,
               responseTime,
               scoreAwarded: isCorrect
-                ? calculateScore(responseTime, attemptCount + 1)
+                ? calculateScore(responseTime, attemptCount + 1, usedHint)
                 : 0,
               attemptNumber: attemptCount + 1,
+              usedHint,
             };
             setPuzzleAttempts((prev) => [...prev, lastAttempt]);
             if (isCorrect) {
@@ -166,6 +161,7 @@ export default function TimeAttackGame() {
     currentPuzzleIndex,
     attemptCount,
     endGame,
+    usedHint,
   ]);
 
   // Load initial puzzles
@@ -238,8 +234,26 @@ export default function TimeAttackGame() {
     loadPuzzles();
   }, [loadPuzzles]);
 
+  // Reset hint states when moving to next puzzle
+  const resetHintStates = useCallback(() => {
+    setUsedHint(false);
+  }, []);
+
+  // Show hint
+  const showHint = useCallback(() => {
+    if (!usedHint && puzzles[currentPuzzleIndex]) {
+      setUsedHint(true);
+    }
+  }, [usedHint, puzzles, currentPuzzleIndex]);
+
   const checkAnswer = useCallback(() => {
     if (!puzzleStartTime || !puzzles[currentPuzzleIndex]) return;
+
+    // Prevent empty submissions
+    if (!currentAttempt.trim()) {
+      toast.error("Please enter an answer", { duration: 500 });
+      return;
+    }
 
     const currentPuzzle = puzzles[currentPuzzleIndex];
     const isCorrect =
@@ -254,9 +268,10 @@ export default function TimeAttackGame() {
       correct: isCorrect,
       responseTime,
       scoreAwarded: isCorrect
-        ? calculateScore(responseTime, attemptCount + 1)
+        ? calculateScore(responseTime, attemptCount + 1, usedHint)
         : 0,
       attemptNumber: attemptCount + 1,
+      usedHint,
     };
 
     setPuzzleAttempts((prev) => [...prev, attempt]);
@@ -269,6 +284,7 @@ export default function TimeAttackGame() {
       setCurrentPuzzleIndex((prev) => prev + 1);
       setAttemptCount(0);
       setPuzzleStartTime(new Date());
+      resetHintStates();
     } else {
       toast.error("Try again!", { duration: 500 });
       if (attemptCount + 1 >= MAX_ATTEMPTS) {
@@ -286,6 +302,8 @@ export default function TimeAttackGame() {
     currentPuzzleIndex,
     currentAttempt,
     attemptCount,
+    usedHint,
+    resetHintStates,
   ]);
 
   if (loading) {
@@ -424,14 +442,44 @@ export default function TimeAttackGame() {
 
         <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
           <div className="text-6xl text-center mb-4">{currentPuzzle.emoji}</div>
-          <div className="text-xl text-center mb-8 font-mono tracking-wider text-gray-500">
+          <div className="text-xl text-center mb-4 font-mono tracking-wider text-gray-500">
             {generateLetterHints(currentPuzzle.answer)}
           </div>
+
+          {/* Hint Section */}
+          <div className="mb-6">
+            {!usedHint ? (
+              <button
+                onClick={showHint}
+                className="w-full py-2 px-4 rounded flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white transition-colors"
+              >
+                <span role="img" aria-label="light bulb" className="text-xl">
+                  💡
+                </span>
+                <span>Show Hint (-200pts)</span>
+              </button>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 animate-fade-in">
+                <div className="flex items-center gap-2 text-yellow-800 font-medium mb-2">
+                  <span role="img" aria-label="light bulb" className="text-xl">
+                    💡
+                  </span>
+                  <span>Hint</span>
+                </div>
+                <p className="text-yellow-700">{currentPuzzle.hint}</p>
+              </div>
+            )}
+          </div>
+
           <input
             type="text"
             value={currentAttempt}
             onChange={(e) => setCurrentAttempt(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && checkAnswer()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && currentAttempt.trim()) {
+                checkAnswer();
+              }
+            }}
             placeholder="Type your answer..."
             className="w-full p-2 border rounded mb-4"
             autoFocus
@@ -443,7 +491,12 @@ export default function TimeAttackGame() {
 
         <button
           onClick={checkAnswer}
-          className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded"
+          disabled={!currentAttempt.trim()}
+          className={`w-full font-bold py-2 px-4 rounded ${
+            currentAttempt.trim()
+              ? "bg-green-500 hover:bg-green-600 text-white"
+              : "bg-gray-300 text-gray-500 cursor-not-allowed"
+          }`}
         >
           Submit Answer
         </button>

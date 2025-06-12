@@ -12,10 +12,11 @@ import {
 import { db } from "./firebase-client";
 import { IdiomPuzzle, TimeAttackSession, PlayerTimeAttackStats } from "./types";
 
-// Calculate score based on response time and attempt number
+// Calculate score based on response time, attempt number, and hint usage
 export function calculateScore(
   responseTime: number,
-  attemptNumber: number
+  attemptNumber: number,
+  usedHint: boolean
 ): number {
   // Base score for correct answer
   const baseScore = 1000;
@@ -26,7 +27,21 @@ export function calculateScore(
   // Attempt penalty: lose points for multiple attempts
   const attemptPenalty = (attemptNumber - 1) * 250; // 250 points lost per attempt
 
-  return Math.round(Math.max(baseScore - timePenalty - attemptPenalty, 100)); // Minimum 100 points
+  // Hint penalty
+  const hintPenalty = usedHint ? 200 : 0; // -200 points for using a hint
+
+  // Calculate total score with minimum of 100 points
+  return Math.round(
+    Math.max(baseScore - timePenalty - attemptPenalty - hintPenalty, 100)
+  );
+}
+
+// Generate letter hints with some revealed letters
+export function generateLetterHints(answer: string): string {
+  return answer
+    .split("")
+    .map((char) => (char === " " ? " " : "-"))
+    .join("");
 }
 
 // Fetch random approved puzzles
@@ -79,17 +94,35 @@ export async function saveTimeAttackSession(
 ): Promise<string> {
   try {
     const sessionsRef = collection(db, "timeAttackSessions");
-    const newSessionRef = doc(sessionsRef);
+    const sessionDoc = doc(sessionsRef, session.playerId);
 
-    await setDoc(newSessionRef, {
-      ...session,
-      id: newSessionRef.id,
-    });
+    // Check if there's an existing session
+    const existingSession = await getDoc(sessionDoc);
+
+    if (!existingSession.exists()) {
+      // First session for this player
+      await setDoc(sessionDoc, {
+        ...session,
+        id: session.playerId,
+      });
+    } else {
+      // Only update if the new score is better
+      const existingData = existingSession.data() as TimeAttackSession;
+      if (session.score > existingData.score) {
+        await setDoc(sessionDoc, {
+          ...session,
+          id: session.playerId,
+        });
+      } else {
+        // Return existing session ID if the new score isn't better
+        return existingData.id;
+      }
+    }
 
     // Update player stats
     await updatePlayerTimeAttackStats(session);
 
-    return newSessionRef.id;
+    return session.playerId;
   } catch (error) {
     console.error("Error saving time attack session:", error);
     throw error;
